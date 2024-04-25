@@ -6,7 +6,7 @@
                :rowData="rowData">
   </ag-grid-vue>
   <button @click="excelDownTempl">엑셀템플릿 다운로드</button>
-  <input type="file" ref="brower" id="addFile" v-if="hasBrowsed" :accept="accept">
+  <input type="file" ref="fileBrower" id="addFile" v-if="hasBrowsed" :accept="accept">
   <button @click="uploadExcel">업로드</button>
   <button @click="dbSave">DB저장</button>
 </template>
@@ -44,32 +44,26 @@ export default {
     gridReady(params) {
       this.gridApi = params.api;
     },
-    onBrowse() {
-      this.$refs.brower.click();
-    },
+
+    //그리드 데이터를 서버로 보내기(DB-Insert)
     dbSave() {
       let postData = [];
       for (const bindRow of this.rowData) {
         postData.push(bindRow);
       }
-
-      console.log(postData);
-
-      axios.post('http://localhost:9090/ag-grid-dataWrite', postData)
-          .then((response) => {
-            console.log(response);
-          }).catch((e) => {
-          console.log(e);
-      })
-
+      axios.post('http://localhost:9090/api/v1/ag-grid/data-write', postData, {
+            headers: { "Content-Type": `application/json`}
+          }
+      ).then((res) => {
+        console.log(res);
+      });
 
     },
     uploadExcel() {
-      let files = this.$refs.brower.files;
+      let files = this.$refs.fileBrower.files;
       if(files[0]) {
-        let sheetInfo;
         this.hasBrowsed = true;
-
+        let sheetInfo;
         let reader = new FileReader();
 
         reader.onload = (e) => {
@@ -86,9 +80,6 @@ export default {
             dateNF : 'yyyy-mm-dd',
             raw : false
           });
-
-          console.log(sheetInfo);
-
           this.setLoadData(sheetInfo);
         };
         reader.readAsArrayBuffer(files[0]);
@@ -97,19 +88,14 @@ export default {
     },
 
     setLoadData(sheetInfo) {
-      console.log(sheetInfo);
       let arr = [];
+
       for (let i = 1; i < sheetInfo.length; i++) {
         let item = sheetInfo[i];
-        console.log(item)
-        if(!_.isEmpty(item[0]) && !_.isEmpty(item[1]) && !_.isEmpty(item[2])) {
+        //항목 빈값 체크
+        if(!_.isEmpty(item[0]) && !_.isEmpty(item[1]) && !_.isEmpty(item[2]) && !_.isEmpty(item[3]) && !_.isEmpty(item[4])) {
           arr.push(item);
         }
-      }
-
-      if(arr.length === 0) {
-        alert(`[`+arr+`] 데이터가 없습니다. 확인하세요`);
-        return;
       }
 
       let failCnt = 0;
@@ -139,6 +125,7 @@ export default {
         this.gridApi.setRowData(this.rowData);
       }
     },
+
     bindDataValid(idx, item) {
       let hang = Number(idx) + 1;
       if(this.isEmpty(item[0])) {
@@ -155,9 +142,12 @@ export default {
       }
       return true;
     },
+
+    //빈값, null, undefined 체크
     isEmpty(str) {
       return str === "" || str === undefined || str === null || str === "null";
     },
+
     //엑셀 템플릿 다운로드
     excelDownTempl() {
       const xlsx = require('xlsx');
@@ -183,7 +173,6 @@ export default {
       const templateExcelFileName = "도서업로드.xlsx";
       xlsx.utils.book_append_sheet(book, worksheetByAoa, sheetName);
       xlsx.writeFile(book, templateExcelFileName);
-
     },
 
   }
